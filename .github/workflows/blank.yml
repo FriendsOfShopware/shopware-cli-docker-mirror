@@ -1,0 +1,31 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the workflow will run
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login into Github Docker Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Login into Docker Hub
+        run: echo "${{ secrets.DOCKER_HUB_SHOPWARE_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_HUB_SHOPWARE_USERNAME }} --password-stdin
+
+      - name: Install regctl
+        uses: iarekylew00t/regctl-installer@v3
+
+      - name: Copy image to Frosh Registry for legacy
+        run: |
+          curl -L -s 'https://registry.hub.docker.com/v2/repositories/shopware/shopware-cli/tags?page_size=1024' | \
+          jq -r '."results"[] | select(.name | startswith("sha256") | not) | .name' | \
+          while read -r tag; do
+              regctl image copy shopware/shopware-cli:${tag} ghcr.io/friendsofshopware/shopware-cli:${tag}
+          done
+
